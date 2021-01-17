@@ -5,14 +5,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type Metric struct {
+type MetricPlugin struct {
 	opts []Callback
 	cols []prometheus.Collector
 }
 
 // New a query metric plugin which can monitor query timing
-func New(opts ...Callback) *Metric {
-	m := &Metric{opts: opts}
+func New(opts ...Callback) *MetricPlugin {
+	m := &MetricPlugin{opts: opts}
 	for _, opt := range m.opts {
 		m.cols = append(m.cols, opt.getCollector())
 	}
@@ -20,12 +20,12 @@ func New(opts ...Callback) *Metric {
 }
 
 // Name for metric plugin
-func (m *Metric) Name() string {
+func (m *MetricPlugin) Name() string {
 	return "gorm:metric"
 }
 
 // Initialize replace gorm callbacks
-func (m *Metric) Initialize(db *gorm.DB) error {
+func (m *MetricPlugin) Initialize(db *gorm.DB) error {
 	for _, opt := range m.opts {
 		opt.apply(db)
 	}
@@ -35,6 +35,6 @@ func (m *Metric) Initialize(db *gorm.DB) error {
 
 // MetricsCollectors return a set of collector for prometheus,
 // so you can use prometheus.register to register them.
-func (m *Metric) MetricsCollectors() []prometheus.Collector {
+func (m *MetricPlugin) MetricsCollectors() []prometheus.Collector {
 	return m.cols
 }

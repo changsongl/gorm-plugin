@@ -1,65 +1,70 @@
 package query
 
 import (
-	"fmt"
+	"time"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"gorm.io/gorm"
-	"time"
 )
 
+// Callback interface for query plugin
 type Callback interface {
 	apply(*gorm.DB)
-	getCollector() prometheus.Collector
+	getCollector() []prometheus.Collector
 }
 
-type LogFunc func(cbName string, cost time.Duration, db *gorm.DB)
-
-var DefaultLogFunc = func(cbName string, cost time.Duration, db *gorm.DB) {
-	query, vars := db.Statement.SQL.String(), db.Statement.Vars
-	sql := BindSQL(query, vars)
-
-	fmt.Printf("[slow sql][%s] err = %v, time = %s, db = %s, table = %s, sql = %s\n",
-		cbName, db.Error, cost, db.Name(), db.Statement.Table, sql)
-}
-
+// cb implemented Callback with callback function
+// and prometheus collectors.
 type cb struct {
-	f   func(db *gorm.DB)
-	col prometheus.Collector
+	f    func(db *gorm.DB)
+	cols []prometheus.Collector
 }
 
+// SlowQueryConfig is for slow query option. Setting counter
+// name, namespace and slow query threshold. It will stats
+// when slow query execution timeQuery is over SlowThreshold, and
+// store in counter and histogram in Namespace and with NamePrefix.
 type SlowQueryConfig struct {
-	CounterNamespace string
-	CounterName      string
-	MaxTime          time.Duration
-	LogFunction      LogFunc
+	Namespace     string
+	NamePrefix    string
+	SlowThreshold time.Duration
 }
 
-func NewCallback(f func(db *gorm.DB), col prometheus.Collector) Callback {
-	return cb{f: f, col: col}
+// NewCallback return a Callback interface.
+func NewCallback(f func(db *gorm.DB), cols ...prometheus.Collector) Callback {
+	return cb{f: f, cols: cols}
 }
 
+// apply is a implementation function of Callback for cb
 func (o cb) apply(db *gorm.DB) {
 	o.f(db)
 }
 
-func (o cb) getCollector() prometheus.Collector {
-	return o.col
+// getCollector is a implementation function of Callback for cb
+func (o cb) getCollector() []prometheus.Collector {
+	return o.cols
 }
 
+// SlowQueryCallback returns a Callback. And replace all kind of Callback
+// with slow query stats function.
 func SlowQueryCallback(c SlowQueryConfig) Callback {
-	slowCounter := newSlowCounter(c.CounterName, c.CounterNamespace)
+	slowMetric := newSlowMetric(c.NamePrefix, c.Namespace)
 	cbFunc := func(db *gorm.DB) {
-		replaceCreateCallback(c, slowCounter, db)
-		replaceUpdateCallback(c, slowCounter, db)
-		replaceDeleteCallback(c, slowCounter, db)
-		replaceQueryCallback(c, slowCounter, db)
-		replaceRawCallback(c, slowCounter, db)
-		replaceRowCallback(c, slowCounter, db)
+		s := newSlowCallback(db, c.SlowThreshold, slowMetric)
+		replaceAllCallback(s)
 	}
 
-	return NewCallback(cbFunc, slowCounter)
+	return NewCallback(cbFunc, slowMetric.counter, slowMetric.counter)
 }
 
-func ErrorCallback() Callback {
-	return nil
+// SlowQueryCallback returns a Callback. And replace all kind of Callback
+// with slow query stats function.
+func ErrorQueryCallback(c SlowQueryConfig) Callback {
+	errorMetric := newErrorMetric(c.NamePrefix, c.Namespace)
+	cbFunc := func(db *gorm.DB) {
+		e := newErrorCallback(db, errorMetric)
+		replaceAllCallback(e)
+	}
+
+	return NewCallback(cbFunc, errorMetric.counter, errorMetric.counter)
 }

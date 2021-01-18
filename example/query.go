@@ -24,15 +24,10 @@ func main() {
 	}
 
 	db.Use(query.New(query.SlowQueryCallback(query.SlowQueryConfig{
-		CounterName:      "1111",
-		CounterNamespace: "ns",
-		MaxTime:          time.Millisecond,
-		LogFunction:      query.DefaultLogFunc,
+		NamePrefix:    "1111",
+		Namespace:     "ns",
+		SlowThreshold: time.Millisecond,
 	})))
 	db.Raw("SELECT id FROM test WHERE id = ?", 3).Scan(&test{})
 	db.Create(&test{Test: "hahaha"})
-
-	//[slow sql][gorm:row] err = <nil>, time = 4.757043ms, db = mysql, table = , sql = SELECT id FROM test WHERE id = 3
-	//[slow sql][gorm:create] err = <nil>, time = 3.813099ms, db = mysql, table = test, sql = INSERT INTO `test` (`test`) VALUES ('hahaha')
-
 }

@@ -12,8 +12,8 @@ import (
 )
 
 type test struct {
-	Id   int64  `gorm:"column:id" json:"id"`     // 实例id
-	Test string `gorm:"column:test" json:"test"` // 告警等级
+	Id   int64  `gorm:"column:id" json:"id"`
+	Test string `gorm:"column:test" json:"test"`
 }
 
 func (test) TableName() string {

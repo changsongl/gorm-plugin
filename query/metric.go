@@ -26,24 +26,26 @@ type errorMetric struct {
 }
 
 // newSlowMetric return a slowMetric
-func newSlowMetric(namePrefix, namespace string) *slowMetric {
+func newSlowMetric(namePrefix, namespace, dbName string) *slowMetric {
 	slowCounter := slowMetric{
 		counter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name:      fmt.Sprintf("%s_slow_query_count", namePrefix),
-				Namespace: namespace,
-				Help:      "gorm-plugin: slow query counter",
+				Name:        fmt.Sprintf("%s_slow_query_count", namePrefix),
+				Namespace:   namespace,
+				Help:        "gorm-plugin: slow query counter",
+				ConstLabels: getDBConstLabel(dbName),
 			},
-			[]string{labelDbName, labelTableName, labelCallbackName},
+			[]string{labelTableName, labelCallbackName},
 		),
 		histogram: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:      fmt.Sprintf("%s_query_time", namePrefix),
-				Namespace: namespace,
-				Help:      "gorm-plugin: slow query timeQuery histogram (unit: second)",
-				Buckets:   []float64{.05, .1, .25, .5, 1, 2.5, 5, 10},
+				Name:        fmt.Sprintf("%s_query_time", namePrefix),
+				Namespace:   namespace,
+				Help:        "gorm-plugin: slow query timeQuery histogram (unit: second)",
+				Buckets:     []float64{.05, .1, .25, .5, 1, 2.5, 5, 10},
+				ConstLabels: getDBConstLabel(dbName),
 			},
-			[]string{labelDbName, labelTableName},
+			[]string{labelTableName},
 		),
 	}
 
@@ -51,15 +53,16 @@ func newSlowMetric(namePrefix, namespace string) *slowMetric {
 }
 
 // newErrorMetric return a errorMetric
-func newErrorMetric(namePrefix, namespace string) *errorMetric {
+func newErrorMetric(namePrefix, namespace, dbName string) *errorMetric {
 	errorCounter := errorMetric{
 		counter: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name:      fmt.Sprintf("%s_error_count", namePrefix),
-				Namespace: namespace,
-				Help:      "gorm-plugin: error counter",
+				Name:        fmt.Sprintf("%s_error_count", namePrefix),
+				Namespace:   namespace,
+				Help:        "gorm-plugin: error counter",
+				ConstLabels: getDBConstLabel(dbName),
 			},
-			[]string{labelDbName, labelTableName, labelCallbackName},
+			[]string{labelTableName, labelCallbackName},
 		),
 	}
 
@@ -67,29 +70,35 @@ func newErrorMetric(namePrefix, namespace string) *errorMetric {
 }
 
 // incSlowQuery increase slow query counter by 1.
-func (s *slowMetric) incSlowQuery(db, table, cbName string) {
-	labels := getDbAndTableMap(db, table)
+func (s *slowMetric) incSlowQuery(table, cbName string) {
+	labels := getDbAndTableMap(table)
 	labels[labelCallbackName] = cbName
 	s.counter.With(labels).Inc()
 }
 
 // timeQuery set query execution time histogram.
-func (s *slowMetric) timeQuery(db, table string, cost time.Duration) {
-	labels := getDbAndTableMap(db, table)
+func (s *slowMetric) timeQuery(table string, cost time.Duration) {
+	labels := getDbAndTableMap(table)
 	s.histogram.With(labels).Observe(float64(cost) / float64(time.Second))
 }
 
 // incErrorQuery increase error query counter by 1.
-func (s *errorMetric) incErrorQuery(db, table, cbName string) {
-	labels := getDbAndTableMap(db, table)
+func (s *errorMetric) incErrorQuery(table, cbName string) {
+	labels := getDbAndTableMap(table)
 	labels[labelCallbackName] = cbName
 	s.counter.With(labels).Inc()
 }
 
 // getDbAndTableMap return a map for prometheus labels.
-func getDbAndTableMap(db, table string) map[string]string {
+func getDbAndTableMap(table string) map[string]string {
 	return map[string]string{
-		labelDbName:    db,
 		labelTableName: table,
+	}
+}
+
+// getDBConstLabel return label const label
+func getDBConstLabel(db string) map[string]string {
+	return map[string]string{
+		labelDbName: db,
 	}
 }

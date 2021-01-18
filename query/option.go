@@ -20,11 +20,12 @@ type cb struct {
 	cols []prometheus.Collector
 }
 
-// SlowQueryConfig is for slow query option. Setting counter
+// Config is for slow query option. Setting counter
 // name, namespace and slow query threshold. It will stats
 // when slow query execution timeQuery is over SlowThreshold, and
 // store in counter and histogram in Namespace and with NamePrefix.
-type SlowQueryConfig struct {
+type Config struct {
+	DBName        string
 	Namespace     string
 	NamePrefix    string
 	SlowThreshold time.Duration
@@ -47,24 +48,24 @@ func (o cb) getCollector() []prometheus.Collector {
 
 // SlowQueryCallback returns a Callback. And replace all kind of Callback
 // with slow query stats function.
-func SlowQueryCallback(c SlowQueryConfig) Callback {
-	slowMetric := newSlowMetric(c.NamePrefix, c.Namespace)
+func SlowQueryCallback(c Config) Callback {
+	slowMetric := newSlowMetric(c.NamePrefix, c.Namespace, c.DBName)
 	cbFunc := func(db *gorm.DB) {
 		s := newSlowCallback(db, c.SlowThreshold, slowMetric)
 		replaceAllCallback(s)
 	}
 
-	return NewCallback(cbFunc, slowMetric.counter, slowMetric.counter)
+	return NewCallback(cbFunc, slowMetric.counter, slowMetric.histogram)
 }
 
 // SlowQueryCallback returns a Callback. And replace all kind of Callback
 // with slow query stats function.
-func ErrorQueryCallback(c SlowQueryConfig) Callback {
-	errorMetric := newErrorMetric(c.NamePrefix, c.Namespace)
+func ErrorQueryCallback(c Config) Callback {
+	errorMetric := newErrorMetric(c.NamePrefix, c.Namespace, c.DBName)
 	cbFunc := func(db *gorm.DB) {
 		e := newErrorCallback(db, errorMetric)
 		replaceAllCallback(e)
 	}
 
-	return NewCallback(cbFunc, errorMetric.counter, errorMetric.counter)
+	return NewCallback(cbFunc, errorMetric.counter)
 }

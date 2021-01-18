@@ -22,12 +22,12 @@ func slowQueryMetricInterceptor(max time.Duration, metric *slowMetric) Intercept
 				start := time.Now()
 				originHandler(db)
 				cost := time.Since(start)
-				metric.timeQuery(db.Name(), db.Statement.Table, cost)
+				metric.timeQuery(db.Statement.Table, cost)
 
 				if cost < max {
 					return
 				}
-				metric.incSlowQuery(db.Name(), db.Statement.Table, cbName)
+				metric.incSlowQuery(db.Statement.Table, cbName)
 			}
 		}
 	}
@@ -39,8 +39,8 @@ func errorQueryMetricInterceptor(metric *errorMetric) Interceptor {
 		return func(originHandler Handler) Handler {
 			return func(db *gorm.DB) {
 				originHandler(db)
-				if db.Error != nil {
-					metric.incErrorQuery(db.Name(), db.Statement.Table, cbName)
+				if db.Error != nil && db.Error != gorm.ErrRecordNotFound {
+					metric.incErrorQuery(db.Statement.Table, cbName)
 				}
 			}
 		}

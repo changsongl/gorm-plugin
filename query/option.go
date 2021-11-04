@@ -58,8 +58,8 @@ func SlowQueryCallback(c Config) Callback {
 	return NewCallback(cbFunc, slowMetric.counter, slowMetric.histogram)
 }
 
-// SlowQueryCallback returns a Callback. And replace all kind of Callback
-// with slow query stats function.
+// ErrorQueryCallback returns a Callback. And replace all kind of Callback
+// with error query stats function.
 func ErrorQueryCallback(c Config) Callback {
 	errorMetric := newErrorMetric(c.NamePrefix, c.Namespace, c.DBName)
 	cbFunc := func(db *gorm.DB) {

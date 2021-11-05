@@ -72,6 +72,7 @@ type Result struct {
 type Explainer struct {
 }
 
+// NewExplainer to check sql explain
 func NewExplainer() *Explainer {
 	return &Explainer{}
 }

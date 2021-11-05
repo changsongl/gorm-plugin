@@ -32,7 +32,7 @@ func New(opts ...Callback) MetricPlugin {
 
 // Name for metric plugin
 func (m *metricPlugin) Name() string {
-	return "gorm:metric"
+	return "gorm-plugin:metric"
 }
 
 // Initialize replace gorm callbacks

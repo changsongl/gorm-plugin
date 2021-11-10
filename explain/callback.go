@@ -7,13 +7,23 @@ import (
 
 const namePrefix = "gorm-plugin-explain:after:"
 
+type CallBackResult struct {
+	Err     error
+	Results []Result
+}
+
 type callback struct {
 	explain *Explainer
 	enable  func() bool
+	fn      func(CallBackResult)
 }
 
-func newCallBack() *callback {
-	return &callback{}
+func newCallBack(opts *options) *callback {
+	return &callback{
+		enable:  opts.enable,
+		fn:      opts.fn,
+		explain: NewExplainer(opts.explainOpts),
+	}
 }
 
 func (c *callback) Register(db *gorm.DB) error {
@@ -31,11 +41,21 @@ func (c *callback) Register(db *gorm.DB) error {
 			return
 		}
 
-		result := sqlDB.QueryRow(explainSQL)
-
-		if err = c.explain.Analyze(result); err != nil {
+		rows, err := sqlDB.Query(explainSQL)
+		if err != nil {
 			gormDB.Logger.Error(gormDB.Statement.Context, err.Error())
 			return
+		}
+
+		result, err := c.explain.Analyze(rows)
+
+		if err != nil {
+			gormDB.Logger.Error(gormDB.Statement.Context, fmt.Sprintf("Query: %s, Error: %s", explainSQL, err.Error()))
+			return
+		}
+
+		if c.fn != nil {
+			c.fn(CallBackResult{Results: result, Err: err})
 		}
 	}
 

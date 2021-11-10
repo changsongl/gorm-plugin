@@ -22,8 +22,13 @@ func (p plugin) Initialize(db *gorm.DB) error {
 }
 
 // New a explain plugin
-func New() Plugin {
+func New(opts ...Option) Plugin {
+	options := newOptions()
+	for _, optFunc := range opts {
+		optFunc.apply(options)
+	}
+
 	return plugin{
-		cb: newCallBack(),
+		cb: newCallBack(options),
 	}
 }

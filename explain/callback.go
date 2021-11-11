@@ -5,19 +5,23 @@ import (
 	"gorm.io/gorm"
 )
 
+// callback name prefix
 const namePrefix = "gorm-plugin-explain:after:"
 
+// CallBackResult call back result
 type CallBackResult struct {
 	Err     error
 	Results []Result
 }
 
+// callback struct
 type callback struct {
 	explain *Explainer
 	enable  func() bool
 	fn      func(CallBackResult)
 }
 
+// newCallBack new a call back
 func newCallBack(opts *options) *callback {
 	return &callback{
 		enable:  opts.enable,
@@ -26,6 +30,7 @@ func newCallBack(opts *options) *callback {
 	}
 }
 
+// Register explain function to all callback processes
 func (c *callback) Register(db *gorm.DB) error {
 	var explainCB func(gormDB *gorm.DB)
 	explainCB = func(gormDB *gorm.DB) {

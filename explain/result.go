@@ -62,6 +62,7 @@ const (
 	ResultExtraDistinct        ResultExtra = "distinct"
 )
 
+// Result mysql fields
 type Result struct {
 	Id          int    `gorm:"id" json:"id"`
 	SelectType  string `gorm:"select_type" json:"select_type"`
@@ -75,43 +76,69 @@ type Result struct {
 	Extra       string `gorm:"Extra" json:"Extra"`
 }
 
+// Explainer for sql explain
 type Explainer struct {
 	requirement explainerOptions
 }
 
+// WhiteList check it is in white list
 type WhiteList interface {
 	IsInWhiteList(string string) error
 }
 
+// BlackList check it is in black list
 type BlackList interface {
 	IsInInBlackList(string string) error
 }
 
+// ExtraList a list of extra
 type ExtraList []ResultExtra
 
+// IsInWhiteList check if ex is in white list
 func (extras ExtraList) IsInWhiteList(ex string) error {
-	for _, extra := range extras {
-		if strings.ToLower(ex) == strings.ToLower(string(extra)) {
-			return nil
+	if len(extras) == 0 {
+		return nil
+	}
+
+	for _, exDes := range strings.Split(ex, ",") {
+		exDes = strings.TrimSpace(exDes)
+		for _, extra := range extras {
+			if strings.ToLower(exDes) == strings.ToLower(string(extra)) {
+				return nil
+			}
 		}
 	}
 
 	return fmt.Errorf("\"%s\" is not in extra white list", ex)
 }
 
+// IsInInBlackList check if ex in black list
 func (extras ExtraList) IsInInBlackList(ex string) error {
-	for _, extra := range extras {
-		if strings.ToLower(ex) == strings.ToLower(string(extra)) {
-			return fmt.Errorf("\"%s\" is in extra black list", ex)
+	if len(extras) == 0 {
+		return nil
+	}
+
+	for _, exDes := range strings.Split(ex, ",") {
+		exDes = strings.TrimSpace(exDes)
+		for _, extra := range extras {
+			if strings.ToLower(exDes) == strings.ToLower(string(extra)) {
+				return fmt.Errorf("\"%s\" is in extra black list", ex)
+			}
 		}
 	}
 
 	return nil
 }
 
+// SelectTypeList a group of select type
 type SelectTypeList []ResultSelectType
 
+// IsInWhiteList check it is in white list
 func (selectTypes SelectTypeList) IsInWhiteList(st string) error {
+	if len(selectTypes) == 0 {
+		return nil
+	}
+
 	for _, selectType := range selectTypes {
 		if strings.ToLower(st) == strings.ToLower(string(selectType)) {
 			return nil
@@ -121,7 +148,12 @@ func (selectTypes SelectTypeList) IsInWhiteList(st string) error {
 	return fmt.Errorf("\"%s\" is not in select type white list", st)
 }
 
+// IsInInBlackList check it is in black list
 func (selectTypes SelectTypeList) IsInInBlackList(st string) error {
+	if len(selectTypes) == 0 {
+		return nil
+	}
+
 	for _, selectType := range selectTypes {
 		if strings.ToLower(st) == strings.ToLower(string(selectType)) {
 			return fmt.Errorf("\"%s\" is in select type black list", st)
@@ -145,12 +177,14 @@ func NewExplainer(req explainerOptions) *Explainer {
 	return &Explainer{requirement: req}
 }
 
+// Analyze every fields
 func (e *Explainer) Analyze(rows *sql.Rows) ([]Result, error) {
 	var results []Result
 	if err := rows.Scan(&results); err != nil {
 		return nil, err
 	}
 
+	// TODO: refactor analyze process by interface by interface
 	for _, row := range results {
 		if err := e.requirement.ExtraBlackList.IsInInBlackList(row.Extra); err != nil {
 			return results, err

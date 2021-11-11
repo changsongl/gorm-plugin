@@ -179,13 +179,14 @@ func NewExplainer(req explainerOptions) *Explainer {
 
 // Analyze every fields
 func (e *Explainer) Analyze(rows *sql.Rows) ([]Result, error) {
-	var results []Result
-	if err := rows.Scan(&results); err != nil {
+	results, err := e.extractResults(rows)
+	if err != nil {
 		return nil, err
 	}
 
 	// TODO: refactor analyze process by interface by interface
 	for _, row := range results {
+
 		if err := e.requirement.ExtraBlackList.IsInInBlackList(row.Extra); err != nil {
 			return results, err
 		}
@@ -211,6 +212,37 @@ func (e *Explainer) Analyze(rows *sql.Rows) ([]Result, error) {
 				return results, fmt.Errorf("%s is not valid type from row reulst", row.Type)
 			}
 		}
+	}
+
+	return results, nil
+}
+
+// extractResults extract sql.Rows to result set
+func (e *Explainer) extractResults(rows *sql.Rows) ([]Result, error) {
+	var results []Result
+
+	for rows.Next() {
+		var id, keyLen, rowNum sql.NullInt64
+		var selectType, table, typeField, posKey, key, ref, extra sql.NullString
+
+		if err := rows.Scan(
+			&id, &selectType, &table, &typeField,
+			&posKey, &key, &keyLen, &ref, &rowNum, &extra); err != nil {
+			return nil, err
+		}
+
+		results = append(results, Result{
+			Id:          int(id.Int64),
+			SelectType:  selectType.String,
+			Table:       table.String,
+			Type:        typeField.String,
+			PossibleKey: posKey.String,
+			Key:         key.String,
+			KeyLen:      int(keyLen.Int64),
+			Ref:         ref.String,
+			Rows:        int(rowNum.Int64),
+			Extra:       extra.String,
+		})
 	}
 
 	return results, nil

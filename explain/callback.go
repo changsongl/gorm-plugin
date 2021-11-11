@@ -6,12 +6,16 @@ import (
 )
 
 // callback name prefix
-const namePrefix = "gorm-plugin-explain:after:"
+const (
+	namePrefix = "gorm-plugin-explain:after:"
+	ExplainCMD = "EXPLAIN"
+)
 
 // CallBackResult call back result
 type CallBackResult struct {
 	Err     error
 	Results []Result
+	SQL     string
 }
 
 // callback struct
@@ -34,19 +38,26 @@ func newCallBack(opts *options) *callback {
 func (c *callback) Register(db *gorm.DB) error {
 	var explainCB func(gormDB *gorm.DB)
 	explainCB = func(gormDB *gorm.DB) {
-		if c.enable != nil && !c.enable() {
+		if gormDB.Error != nil && gormDB.Error != gorm.ErrRecordNotFound {
+			gormDB.Logger.Warn(gormDB.Statement.Context, fmt.Sprintf("Explain call back failed: %s", gormDB.Error.Error()))
 			return
 		}
 
-		explainSQL := fmt.Sprintf("EXPLAIN %s",
-			gormDB.Dialector.Explain(gormDB.Statement.SQL.String(), gormDB.Statement.Vars...))
-		sqlDB, err := gormDB.DB()
+		if c.enable != nil && !c.enable() {
+			gormDB.Logger.Info(gormDB.Statement.Context, "Explain call back not enable")
+			return
+		}
+
+		sql := gormDB.Dialector.Explain(gormDB.Statement.SQL.String(), gormDB.Statement.Vars...)
+		explainSQL := fmt.Sprintf("%s %s", ExplainCMD, sql)
+
+		conn, err := gormDB.DB()
 		if err != nil {
 			gormDB.Logger.Error(gormDB.Statement.Context, err.Error())
 			return
 		}
 
-		rows, err := sqlDB.Query(explainSQL)
+		rows, err := conn.Query(explainSQL)
 		if err != nil {
 			gormDB.Logger.Error(gormDB.Statement.Context, err.Error())
 			return
@@ -60,7 +71,7 @@ func (c *callback) Register(db *gorm.DB) error {
 		}
 
 		if c.fn != nil {
-			c.fn(CallBackResult{Results: result, Err: err})
+			c.fn(CallBackResult{Results: result, Err: err, SQL: sql})
 		}
 	}
 

@@ -23,7 +23,12 @@ func (f optFunc) apply(opts *options) {
 // newOptions create a new options
 func newOptions() *options {
 	return &options{
-		explainOpts: explainerOptions{},
+		explainOpts: explainerOptions{
+			ExtraBlackList:      ExtraList{},
+			ExtraWhiteList:      ExtraList{},
+			SelectTypeBlackList: SelectTypeList{},
+			SelectTypeWhiteList: SelectTypeList{},
+		},
 	}
 }
 

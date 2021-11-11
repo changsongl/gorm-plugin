@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/changsongl/gorm-plugin/explain"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -24,15 +25,17 @@ func main() {
 	}
 
 	// create query plugin
-	plugin := explain.New()
+	plugin := explain.New(explain.CallBackFuncOption(func(result explain.CallBackResult) {
+		fmt.Println(result)
+	}))
 	// using plugin
 	if err := db.Use(plugin); err != nil {
 		panic(err.Error())
 	}
 
 	// running sqls
-	db.Raw("SELECT id FROM test WHERE id = ?", 3).Scan(&test{})
-	db.Create(&test{Test: "hahaha"})
-	db.Where("id = 123232132").First(&test{})                    // record not found
-	db.Raw("SELECT id FROM test2 WHERE id = ?", 3).Scan(&test{}) // error
+	//db.Explain("SELECT id FROM test WHERE id = ?", 3)
+	//db.Create(&test{Test: "hahaha"})
+	db.Where("id = 123232132").First(&test{}) // record not found
+	//db.Raw("SELECT id FROM test2 WHERE id = ?", 3).Scan(&test{}) // error
 }

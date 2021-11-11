@@ -4,15 +4,15 @@ metrics to monitor your SQLs.
 
 I will frequently write gorm plugins in this project. Please star it if you like it.
 
+#### Download package with go mod:
+`go get github.com/changsongl/gorm-plugin`
+
 ### 1. Query
 It is a plugin to monitor query execution time and slow query count 
 for tables. We can use prometheus client to expose metrics api, and
 having a prometheus server to scrape data from it. Eventually, you can
 use `Alertmanager` or `Grafana` to monitor your slow query and query running 
 time.
-
-Download package with go mod: 
-`github.com/changsongl/gorm-plugin`
 
 
 ````golang
@@ -120,5 +120,75 @@ mynamespace_myprefix_query_time_count{db_name="my_test_db",table_name="test"} 2
 mynamespace_myprefix_slow_query_count{callback="gorm:create",db_name="my_test_db",table_name="test"} 1
 mynamespace_myprefix_slow_query_count{callback="gorm:query",db_name="my_test_db",table_name="test"} 1
 mynamespace_myprefix_slow_query_count{callback="gorm:row",db_name="my_test_db",table_name=""} 2
+````
+
+### 2. Explain SQL
+It is a plugin for explain the sql you ran. You can set the requirement of explain result.
+
+````sql
+CREATE TABLE `test`.`explain_table` (
+`id` INT NOT NULL AUTO_INCREMENT,
+`room_id` INT UNSIGNED NOT NULL,
+`room_name` VARCHAR(45) NOT NULL,
+PRIMARY KEY (`id`),
+INDEX `idx_room_id` (`room_id` ASC));
+
+INSERT INTO `test`.`explain_table` (`id`, `room_id`, `room_name`) VALUES (NULL, '1', 'room_name_1');
+INSERT INTO `test`.`explain_table` (`id`, `room_id`, `room_name`) VALUES (NULL, '2', 'room_name2');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('3', 'room_name2');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('4', 'room_name2');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('5', 'room_name3');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('5', 'room_name5');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('6', 'room_name9');
+INSERT INTO `test`.`explain_table` (`room_id`, `room_name`) VALUES ('7', 'room_name1');
+````
+
+````go
+package main
+
+import (
+	"fmt"
+	"github.com/changsongl/gorm-plugin/explain"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
+
+type test struct {
+	ID       int64  `gorm:"column:id" json:"id"`
+	RoomID   int64  `gorm:"column:room_id" json:"room_id"`
+	RoomName string `gorm:"column:room_name" json:"room_name"`
+}
+
+func (test) TableName() string {
+	return "explain_table"
+}
+
+func main() {
+	// create gorm v2 db
+	dsn := "root:123456@tcp(127.0.0.1:3306)/test?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		panic(err)
+	}
+
+	// create query plugin
+	plugin := explain.New(
+		explain.CallBackFuncOption(func(result explain.CallBackResult) {
+			fmt.Printf("%+v\n", result)
+		}),
+		explain.TypeLevelOption(explain.ResultTypeRange),
+	)
+
+	// using plugin
+	if err := db.Use(plugin); err != nil {
+		panic(err.Error())
+	}
+
+	db.Where("room_name = 'haha'").First(&test{})
+}
+````
+
+````shell
+{Err:index not pass type requirement (range)  Results:[{Id:1 SelectType:SIMPLE Table:explain_table Type:index PossibleKey: Key:PRIMARY KeyLen:4 Ref: Rows:1 Extra:Using where}] SQL:SELECT * FROM `explain_table` WHERE room_name = 'haha' ORDER BY `explain_table`.`id` LIMIT 1}
 ````
 

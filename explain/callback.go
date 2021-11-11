@@ -1,6 +1,7 @@
 package explain
 
 import (
+	"errors"
 	"fmt"
 	"gorm.io/gorm"
 )
@@ -63,7 +64,7 @@ func (c *callback) Register(db *gorm.DB) error {
 			return
 		}
 
-		result, err := c.explain.Analyze(rows)
+		result, recom, err := c.explain.Analyze(rows)
 
 		if err != nil {
 			gormDB.Logger.Error(gormDB.Statement.Context, fmt.Sprintf("Query: %s, Error: %s", explainSQL, err.Error()))
@@ -71,7 +72,12 @@ func (c *callback) Register(db *gorm.DB) error {
 		}
 
 		if c.fn != nil {
-			c.fn(CallBackResult{Results: result, Err: err, SQL: sql})
+			var resErr error
+			if recom != EmptyRecommendation {
+				resErr = errors.New(recom)
+			}
+
+			c.fn(CallBackResult{Results: result, Err: resErr, SQL: sql})
 		}
 	}
 

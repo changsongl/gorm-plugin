@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const EmptyRecommendation = ""
+
 // ResultSelectType explain result select type
 type ResultSelectType string
 
@@ -44,8 +46,14 @@ var ResultTypePriorityMap = map[ResultType]int{
 	ResultTypeSystem: 7,
 }
 
+// IsValid is valid type
 func (t ResultType) IsValid() bool {
 	return ResultTypePriorityMap[t] != 0
+}
+
+// IsPass t whether is pass the requirement (t2)
+func (t ResultType) IsPass(req ResultType) bool {
+	return ResultTypePriorityMap[t] >= ResultTypePriorityMap[req]
 }
 
 // ResultExtra explain result extra
@@ -178,43 +186,48 @@ func NewExplainer(req explainerOptions) *Explainer {
 }
 
 // Analyze every fields
-func (e *Explainer) Analyze(rows *sql.Rows) ([]Result, error) {
+func (e *Explainer) Analyze(rows *sql.Rows) ([]Result, string, error) {
 	results, err := e.extractResults(rows)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	// TODO: refactor analyze process by interface by interface
 	for _, row := range results {
 
 		if err := e.requirement.ExtraBlackList.IsInInBlackList(row.Extra); err != nil {
-			return results, err
+			return results, err.Error(), nil
 		}
 
 		if err := e.requirement.ExtraWhiteList.IsInWhiteList(row.Extra); err != nil {
-			return results, err
+			return results, err.Error(), nil
 		}
 
 		if err := e.requirement.SelectTypeBlackList.IsInInBlackList(row.SelectType); err != nil {
-			return results, err
+			return results, err.Error(), nil
 		}
 
 		if err := e.requirement.SelectTypeWhiteList.IsInWhiteList(row.SelectType); err != nil {
-			return results, err
+			return results, err.Error(), nil
 		}
 
 		if e.requirement.TypeLevel != ResultTypeNone {
 			if !e.requirement.TypeLevel.IsValid() {
-				return results, fmt.Errorf("%s is not valid type", e.requirement.TypeLevel)
+				return nil, "", fmt.Errorf("%s is not valid type", e.requirement.TypeLevel)
 			}
 
-			if !ResultType(row.Type).IsValid() {
-				return results, fmt.Errorf("%s is not valid type from row reulst", row.Type)
+			rowType := ResultType(row.Type)
+			if !rowType.IsValid() {
+				return nil, "", fmt.Errorf("%s is not valid type from row reulst", row.Type)
+			}
+
+			if !rowType.IsPass(e.requirement.TypeLevel) {
+				return results, fmt.Sprintf("%s not pass type requirement (%s) ", rowType, e.requirement.TypeLevel), nil
 			}
 		}
 	}
 
-	return results, nil
+	return results, EmptyRecommendation, nil
 }
 
 // extractResults extract sql.Rows to result set

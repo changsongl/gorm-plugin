@@ -8,12 +8,13 @@ import (
 )
 
 type test struct {
-	Id   int64  `gorm:"column:id" json:"id"`
-	Test string `gorm:"column:test" json:"test"`
+	ID       int64  `gorm:"column:id" json:"id"`
+	RoomID   int64  `gorm:"column:room_id" json:"room_id"`
+	RoomName string `gorm:"column:room_name" json:"room_name"`
 }
 
 func (test) TableName() string {
-	return "test"
+	return "explain_table"
 }
 
 func main() {
@@ -25,17 +26,17 @@ func main() {
 	}
 
 	// create query plugin
-	plugin := explain.New(explain.CallBackFuncOption(func(result explain.CallBackResult) {
-		fmt.Println(result)
-	}))
+	plugin := explain.New(
+		explain.CallBackFuncOption(func(result explain.CallBackResult) {
+			fmt.Printf("%+v\n", result)
+		}),
+		explain.TypeLevelOption(explain.ResultTypeRange),
+	)
+
 	// using plugin
 	if err := db.Use(plugin); err != nil {
 		panic(err.Error())
 	}
 
-	// running sqls
-	//db.Explain("SELECT id FROM test WHERE id = ?", 3)
-	//db.Create(&test{Test: "hahaha"})
-	db.Where("id = 123232132").First(&test{}) // record not found
-	//db.Raw("SELECT id FROM test2 WHERE id = ?", 3).Scan(&test{}) // error
+	db.Where("room_name = 'haha'").First(&test{})
 }
